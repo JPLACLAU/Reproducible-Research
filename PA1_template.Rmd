@@ -1,0 +1,188 @@
+---
+title: "Peer-graded Assignment: Course Project 1"
+author: "JPLACLAU"
+date: "January 25, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## 0.Creacion of wd " /ReproductableResearch "
+
+```{r}
+
+if(!file.exists("ReproductableResearch")){dir.create("ReproductableResearch")}
+
+
+
+```
+
+
+## 1.Code for reading in the dataset and/or processing the data
+
+```{r}
+
+# Download .zip file
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+f <- file.path(getwd(),"ReproductableResearch", "repdataFdataFactivity.zip")
+download.file(url, f, mode="wb")
+dateDownloaded <- date()
+message("Archivo descargado en la fecha: ", dateDownloaded)
+
+#unzip
+unzip(path.expand("./ReproductableResearch/repdataFdataFactivity.zip"), files = NULL, list = FALSE, overwrite = TRUE,junkpaths = FALSE, exdir = ".", unzip = "internal",    setTimes = FALSE)
+
+#read file
+activity <-read.csv("./activity.csv")
+head(activity)
+
+```
+
+
+## 2.Histogram of the total number of steps taken each day
+
+```{r}
+
+library(ggplot2)
+
+#sum of steps per day
+meantotalstepsperday <- tapply(activity$steps, activity$date, sum)
+
+#histogram
+qplot(meantotalstepsperday, geom="histogram",xlab = "Total number of steps taken each day", ylab ="Count of days") 
+
+```
+
+
+## 3.Mean and median number of steps taken each day
+
+```{r}
+
+#mean and median calculated with removed NA values
+
+mean(meantotalstepsperday, na.rm = TRUE)
+median(meantotalstepsperday, na.rm = TRUE)
+
+```
+
+
+## 4.Time series plot of the average number of steps taken
+
+```{r}
+# Calculating the mean of steps per interval
+meanstepsperinterval <- tapply(activity$steps, activity$interval, mean, na.rm = TRUE)
+
+plot(meanstepsperinterval, type = "l", main = ("Mean steps per 5 minutes interval on the day"), 
+     ylab = "Number of steps", xlab = "5 min Interval of the day")
+
+
+```
+
+
+## 5.The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r}
+
+activity[which.max(activity$steps), ]
+
+
+```
+
+
+## 6.Code to describe and show a strategy for imputing missing data
+
+```{r}
+#1.  total number of rows with NAs
+missing <- is.na(activity$steps)
+table(missing)
+
+#2. Strategy to replace missing values: merging NA values with daily mean
+
+#finding na positions
+na_pos <- which(is.na(activity$steps))
+
+#creating a vector of the means per interval
+meansperinterval_vector <- rep(mean(activity$steps, na.rm = TRUE),times=length(na_pos))
+
+#duplicating activity so original table stays intactc
+filled_activity <- activity
+
+#3. New dataset: replacing values
+filled_activity[na_pos,"steps"] <- meansperinterval_vector
+head(filled_activity)
+
+
+```
+
+
+## 7.Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r}
+# sum of steps per day
+sum_stepsperday <- aggregate(filled_activity$steps, by=list(filled_activity$date), FUN=sum)
+head(sum_stepsperday)
+names(sum_stepsperday) <- c("Date", "Total_steps")
+
+#making histogram
+hist(sum_stepsperday$Total_steps, 
+     breaks=seq(from=0, to=25000, by=2500),
+     col="purple", 
+     xlab="Total number of steps", 
+     ylim=c(0, 30), 
+     main="Total number of steps taken each day (NA replaced by mean value of the day)")
+
+#Mean and Median of filled values
+mean(sum_stepsperday$Total_steps)
+median(sum_stepsperday$Total_steps)
+
+
+```
+
+The impact of imputting missing data with daily means is that it makes the median closer to the mean and that is not necesarily accurate. Regarding the mean, there is no difference.
+
+
+## 8.Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r}
+#separating weekdays from weekends
+weekday_or_weekend <- function(date) {
+        day <- weekdays(date)
+        if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+                return("weekday")
+        else if (day %in% c("Saturday", "Sunday"))
+                return("weekend")
+        else
+                stop("invalid date")
+}
+
+filled_activity$date <- as.Date(filled_activity$date)
+
+#duplicating to avoid messing up already used data
+New_filled_activity <- filled_activity
+
+New_filled_activity$day <- sapply(filled_activity$date, FUN=weekday_or_weekend)
+
+# Preparing means data weekdays/weekends
+WdWe_means <- aggregate(steps ~ interval + day, data=New_filled_activity, mean)
+
+# Compute the time serie plot
+ggplot(WdWe_means, aes(interval, steps)) + geom_line() + facet_grid(day ~ .) +
+        xlab("5 min interval") + ylab("Average number of steps")
+
+
+```
+
+
+## 9.All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
+
+```{r}
+
+message("All code was 'echo=TRUE'. Thanks for reading")
+
+
+```
+
+
